@@ -13,7 +13,7 @@ function Test-KustoClusterLifecycle
 		$clusterName = "testCluster"
 		$sku = "D13_v2"
 		$resourceType =  "Microsoft.Kusto/clusters"
-
+	
 		New-AzureRmResourceGroup -Name $resourceGroupName -Location $RGlocation
 		
 		$clusterCreated = New-AzureRmKustoCluster -ResourceGroupName $resourceGroupName -Name $clusterName -Location $location -Sku $sku
@@ -26,7 +26,7 @@ function Test-KustoClusterLifecycle
 	
 		[array]$clusterGet = Get-AzureRmKustoCluster -ResourceGroupName $resourceGroupName -Name $clusterName
 		$clusterGetItem = $clusterGet[0]
-
+	
 		Assert-True {$clusterGetItem.State -like "Succeeded"}
 		Assert-AreEqual $clusterName $clusterGetItem.Name
 		Assert-AreEqual $location $clusterGetItem.Location
@@ -41,4 +41,5 @@ function Test-KustoClusterLifecycle
 		Invoke-HandledCmdlet -Command {Remove-AzureRmKustoCluster -ResourceGroupName $resourceGroupName -Name $capacityName -ErrorAction SilentlyContinue} -IgnoreFailures
 		Invoke-HandledCmdlet -Command {Remove-AzureRmResourceGroup -Name $resourceGroupName -ErrorAction SilentlyContinue} -IgnoreFailures
 	}
+		#Assert-AreEqual "aa" "aa""
 }
