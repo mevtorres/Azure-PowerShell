@@ -14,7 +14,7 @@
 
 using Microsoft.Azure.Commands.Common.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Abstractions;
-using Microsoft.Azure.ServiceManagemenet.Common;
+using Microsoft.Azure.ServiceManagement.Common;
 using Microsoft.WindowsAzure.Commands.Common;
 using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Microsoft.WindowsAzure.Commands.Common.Storage;
@@ -34,8 +34,7 @@ namespace Microsoft.WindowsAzure.Commands.Storage.Common.Cmdlet
     /// <summary>
     /// New storage context
     /// </summary>
-    [GenericBreakingChange("The default parameter set will change to OAuthParameterSet in a future release.")]
-    [Cmdlet("New", Azure.Commands.ResourceManager.Common.AzureRMConstants.AzurePrefix + "StorageContext", DefaultParameterSetName = AccountNameKeyParameterSet), OutputType(typeof(AzureStorageContext))]
+    [Cmdlet("New", Azure.Commands.ResourceManager.Common.AzureRMConstants.AzurePrefix + "StorageContext", DefaultParameterSetName = OAuthParameterSet), OutputType(typeof(AzureStorageContext))]
     public class NewAzureStorageContext : AzureDataCmdlet
     {
         /// <summary>
