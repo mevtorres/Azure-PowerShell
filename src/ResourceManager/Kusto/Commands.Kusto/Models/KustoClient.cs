@@ -185,7 +185,6 @@ namespace Microsoft.Azure.Commands.Kusto.Models
                 throw new CloudException(string.Format(Resources.FailedToDiscoverResourceGroup, clusterName, _subscriptionId));
             }
         }
-
         #endregion
 
         #region Database Related Operations
@@ -205,17 +204,12 @@ namespace Microsoft.Azure.Commands.Kusto.Models
             int hotCachePeriodInDays,
             int softDeletePeriodInDays,
             string location,
-            Hashtable customTags = null,
             PSKustoDatabase existingDatbase = null)
         {
             if (string.IsNullOrEmpty(resourceGroupName))
             {
                 resourceGroupName = GetResourceGroupByCluster(clusterName);
             }
-
-            var tags = (customTags != null)
-                ? TagsConversionHelper.CreateTagDictionary(customTags, true)
-                : null;
 
             Database newOrUpdatedDatabase;
             if (existingDatbase != null)
