@@ -62,6 +62,9 @@
     <None Include="ScenarioTests\KustoClusterTests.ps1">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+	 <None Include="SessionRecords\Microsoft.Azure.Commands.Kusto.Test.ScenarioTests.KustoTests\TestKustoClusterLifecycle.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="MSSharedLibKey.snk" />
     <None Include="packages.config" />
     <None Include="SessionRecords\Microsoft.Azure.Commands.Kusto.Test.ScenarioTests.KustoClusterTests\TestKustoClusterLifecycle.json" />
