@@ -14,7 +14,15 @@
 
 using Microsoft.Azure.Commands.Common.Authentication.Abstractions;
 using Microsoft.Azure.Commands.DataLakeStore.Properties;
+using Microsoft.Azure.DataLake.Store;
+using Microsoft.Azure.DataLake.Store.Acl;
+using Microsoft.Azure.DataLake.Store.AclTools;
+using Microsoft.Azure.DataLake.Store.FileTransfer;
+using Microsoft.Azure.DataLake.Store.MockAdlsFileSystem;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
+using NLog;
+using NLog.Config;
+using NLog.Targets;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,14 +32,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.DataLake.Store;
-using Microsoft.Azure.DataLake.Store.Acl;
-using Microsoft.Azure.DataLake.Store.AclTools;
-using Microsoft.Azure.DataLake.Store.FileTransfer;
-using Microsoft.Azure.DataLake.Store.MockAdlsFileSystem;
-using NLog;
-using NLog.Config;
-using NLog.Targets;
+
 namespace Microsoft.Azure.Commands.DataLakeStore.Models
 {
     public class DataLakeStoreFileSystemClient
@@ -770,16 +771,64 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
 
         #endregion
 
+        #region Deleted item operations
+        /// <summary>
+        /// Get items in trash matching query string
+        /// </summary>
+        /// <param name="accountName">Account name</param>
+        /// <param name="hint">Query to match items in trash</param>
+        /// <param name="listAfter">Continuation token returned by previous API call. Used to search next set of trash entries</param>
+        /// <param name="numResults">Minimum number of entries to search for</param>
+        /// <param name="cmdlet">GetAzureDataLakeStoreDeletedItem cmdlet</param>
+        /// <param name="cmdletCancellationToken">CancellationToken</param>
+        public IEnumerable<TrashEntry> EnumerateDeletedItems(string accountName, string hint, string listAfter, int numResults, Cmdlet cmdlet, CancellationToken cmdletCancellationToken = default(CancellationToken))
+        {
+            var progressTracker = new Progress<EnumerateDeletedItemsProgress>();
+            progressTracker.ProgressChanged += (s, e) =>
+            {
+                lock (ConsoleOutputLock)
+                {
+                    Console.WriteLine("Searched = {0}, Found = {1}, NextListAfter = {2}", e.NumSearched, e.NumFound, e.NextListAfter);
+                }
+            };
+
+            IEnumerable<TrashEntry> result = null;
+            Task enumerateTask = Task.Run(() =>
+            {
+                result = AdlsClientFactory.GetAdlsClient(accountName, _context).EnumerateDeletedItems(hint, listAfter, numResults, progressTracker, cmdletCancellationToken);
+            }, cmdletCancellationToken);
+            
+            WaitForTask(enumerateTask, cmdletCancellationToken);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Restore a stream or directory from trash to user space. This is a synchronous operation.
+        /// Not threadsafe when Restore is called for same path from different threads. 
+        /// </summary>
+        /// <param name="restoreToken">The trash directory path in enumeratedeleteditems response</param>
+        /// <param name="restoreDestination">Path to where the entry should be restored</param>
+        /// <param name="type">Type of the entry which is being restored. "file" or "folder"</param>
+        /// <param name="restoreAction">Action to take during destination name conflicts - "overwrite" or "copy"</param>
+        /// <param name="cmdletCancellationToken">CancellationToken</param>
+        public void RestoreDeletedItem(string accountName, string pathOfFileToRestoreInTrash, string restoreDestination, string type, string restoreAction, CancellationToken cmdletCancellationToken = default(CancellationToken))
+        {
+            AdlsClientFactory.GetAdlsClient(accountName, _context).RestoreDeletedItems(pathOfFileToRestoreInTrash, restoreDestination, type, restoreAction, cmdletCancellationToken);
+        }
+
+        #endregion
+
         #region private helpers
         /// <summary>
-        /// Tracks the task and shows the task progress or debug nessages after a regular interval in the PowerShell console.
+        /// Tracks the task and shows the task progress or debug messages after a regular interval in the PowerShell console.
         /// Call this method only if you want to do something for a task - like show progress, show debug messages
         /// </summary>
         /// <param name="task">The task that tracks the upload.</param>
         /// <param name="commandToUpdateProgressFor">Commandlet to write to</param>
         /// <param name="taskProgress">The upload progress that will be displayed in the console.</param>
         /// <param name="token">Cancellation token</param>
-        private void TrackTaskProgress(Task task, Cmdlet commandToUpdateProgressFor, ProgressRecord taskProgress, CancellationToken token)
+        private void TrackTaskProgress(Task task, Cmdlet commandToUpdateProgressFor, ProgressRecord taskProgress, CancellationToken token, int progressInterval = 250)
         {
             var pscommandToUpdateProgressFor = (DataLakeStoreFileSystemCmdletBase) commandToUpdateProgressFor;
             // Update the UI with the progress.
@@ -817,8 +866,8 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
                         }
                     }
                 }
-                TestMockSupport.Delay(250);
-                
+
+                TestMockSupport.Delay(progressInterval);
             }
 
             if (taskProgress != null && (task.IsCanceled || token.IsCancellationRequested))
