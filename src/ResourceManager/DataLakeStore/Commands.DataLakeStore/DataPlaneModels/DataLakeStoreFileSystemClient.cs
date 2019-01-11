@@ -803,12 +803,12 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
                 }, cmdletCancellationToken);
 
                 
-                cmdlet.WriteObject(result);
+                //cmdlet.WriteObject(result);
             }
             finally
             {
                 WaitForTask(enumerateTask, cmdletCancellationToken);
-                if (result != null)
+                /*if (result != null)
                 {
                     var enumerator = result.GetEnumerator();
                     while (enumerator.MoveNext())
@@ -816,7 +816,7 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
                         var current = enumerator.Current;
                         Console.WriteLine("TrashDirPath: {0}\nOriginalPath: {1}\nType: {2}\nCreationTime: {3}\n", current.TrashDirPath, current.OriginalPath, current.Type, current.CreationTime);
                     }
-                }
+                }*/
 
                 cmdlet.WriteObject(result);
             }
