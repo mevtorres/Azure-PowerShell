@@ -27,6 +27,7 @@ namespace Microsoft.Azure.Commands.DataLakeStore
     {
         internal const string BaseParameterSetName = "GetAllInSubscription";
         internal const string ResourceGroupParameterSetName = "GetByResourceGroup";
+
         internal const string AccountParameterSetName = "GetBySpecificAccount";
 
         [Parameter(ParameterSetName = ResourceGroupParameterSetName, Position = 0,

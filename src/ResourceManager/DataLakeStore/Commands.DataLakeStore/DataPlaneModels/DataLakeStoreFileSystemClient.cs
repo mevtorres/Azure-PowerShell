@@ -783,22 +783,43 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
         /// <param name="cmdletCancellationToken">CancellationToken</param>
         public IEnumerable<TrashEntry> EnumerateDeletedItems(string accountName, string hint, string listAfter, int numResults, Cmdlet cmdlet, CancellationToken cmdletCancellationToken = default(CancellationToken))
         {
-            var progressTracker = new Progress<EnumerateDeletedItemsProgress>();
-            progressTracker.ProgressChanged += (s, e) =>
-            {
-                lock (ConsoleOutputLock)
-                {
-                    Console.WriteLine("Searched = {0}, Found = {1}, NextListAfter = {2}", e.NumSearched, e.NumFound, e.NextListAfter);
-                }
-            };
-
             IEnumerable<TrashEntry> result = null;
-            Task enumerateTask = Task.Run(() =>
+            Task enumerateTask = null;
+            try
             {
-                result = AdlsClientFactory.GetAdlsClient(accountName, _context).EnumerateDeletedItems(hint, listAfter, numResults, progressTracker, cmdletCancellationToken);
-            }, cmdletCancellationToken);
-            
-            WaitForTask(enumerateTask, cmdletCancellationToken);
+                var progressTracker = new Progress<EnumerateDeletedItemsProgress>();
+                progressTracker.ProgressChanged += (s, e) =>
+                {
+                    lock (ConsoleOutputLock)
+                    {
+                        Console.WriteLine("Searched = {0}, Found = {1}, NextListAfter = {2}\n", e.NumSearched, e.NumFound, e.NextListAfter);
+                    }
+                };
+
+                
+                enumerateTask = Task.Run(() =>
+                {
+                    result = AdlsClientFactory.GetAdlsClient(accountName, _context).EnumerateDeletedItems(hint, listAfter, numResults, progressTracker, cmdletCancellationToken);                   
+                }, cmdletCancellationToken);
+
+                
+                cmdlet.WriteObject(result);
+            }
+            finally
+            {
+                WaitForTask(enumerateTask, cmdletCancellationToken);
+                if (result != null)
+                {
+                    var enumerator = result.GetEnumerator();
+                    while (enumerator.MoveNext())
+                    {
+                        var current = enumerator.Current;
+                        Console.WriteLine("TrashDirPath: {0}\nOriginalPath: {1}\nType: {2}\nCreationTime: {3}\n", current.TrashDirPath, current.OriginalPath, current.Type, current.CreationTime);
+                    }
+                }
+
+                cmdlet.WriteObject(result);
+            }
 
             return result;
         }
@@ -828,7 +849,7 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
         /// <param name="commandToUpdateProgressFor">Commandlet to write to</param>
         /// <param name="taskProgress">The upload progress that will be displayed in the console.</param>
         /// <param name="token">Cancellation token</param>
-        private void TrackTaskProgress(Task task, Cmdlet commandToUpdateProgressFor, ProgressRecord taskProgress, CancellationToken token, int progressInterval = 250)
+        private void TrackTaskProgress(Task task, Cmdlet commandToUpdateProgressFor, ProgressRecord taskProgress, CancellationToken token)
         {
             var pscommandToUpdateProgressFor = (DataLakeStoreFileSystemCmdletBase) commandToUpdateProgressFor;
             // Update the UI with the progress.
@@ -866,8 +887,7 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
                         }
                     }
                 }
-
-                TestMockSupport.Delay(progressInterval);
+                TestMockSupport.Delay(250);
             }
 
             if (taskProgress != null && (task.IsCanceled || token.IsCancellationRequested))

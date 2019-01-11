@@ -42,7 +42,7 @@ namespace Microsoft.Azure.Commands.DataLakeStore
             HelpMessage = "Type of the entry which is being restored. \"file\" or \"folder\"")]
         public string Type { get; set; }
 
-        [Parameter(ValueFromPipelineByPropertyName = true, Mandatory = false,
+        [Parameter(ValueFromPipelineByPropertyName = true, Position = 4, Mandatory = false,
             HelpMessage = "Action to take during destination name conflicts - \"overwrite\" or \"copy\"")]
         public string RestoreAction { get; set; }
 

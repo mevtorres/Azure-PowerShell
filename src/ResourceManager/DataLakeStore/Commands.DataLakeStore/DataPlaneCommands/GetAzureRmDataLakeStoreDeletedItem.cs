@@ -12,10 +12,14 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
-using Microsoft.Azure.Commands.DataLakeStore.Models;
 using Microsoft.Azure.DataLake.Store;
+using Microsoft.Azure.Commands.DataLakeStore.Models;
+using System.Threading;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading.Tasks;
+using System;
 
 namespace Microsoft.Azure.Commands.DataLakeStore
 {
@@ -40,12 +44,12 @@ namespace Microsoft.Azure.Commands.DataLakeStore
 
         [Parameter(ValueFromPipelineByPropertyName = true, Mandatory = false,
             HelpMessage = "Minimum number of entries to search for")]
-        public int NumResults { get; set; }
+        public int NumResults { get; set; } = 1;
 
         public override void ExecuteCmdlet()
         {
             var toReturn = DataLakeStoreFileSystemClient.EnumerateDeletedItems(Account, Hint, ListAfter, NumResults, this, CmdletCancellationToken).Select(entry => new DataLakeStoreDeletedItem(entry)).ToList();
-            WriteObject(toReturn, true);
+            //WriteObject(toReturn);
         }
     }
 }
