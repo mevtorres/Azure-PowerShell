@@ -14,7 +14,15 @@
 
 using Microsoft.Azure.Commands.Common.Authentication.Abstractions;
 using Microsoft.Azure.Commands.DataLakeStore.Properties;
+using Microsoft.Azure.DataLake.Store;
+using Microsoft.Azure.DataLake.Store.Acl;
+using Microsoft.Azure.DataLake.Store.AclTools;
+using Microsoft.Azure.DataLake.Store.FileTransfer;
+using Microsoft.Azure.DataLake.Store.MockAdlsFileSystem;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
+using NLog;
+using NLog.Config;
+using NLog.Targets;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,14 +32,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.DataLake.Store;
-using Microsoft.Azure.DataLake.Store.Acl;
-using Microsoft.Azure.DataLake.Store.AclTools;
-using Microsoft.Azure.DataLake.Store.FileTransfer;
-using Microsoft.Azure.DataLake.Store.MockAdlsFileSystem;
-using NLog;
-using NLog.Config;
-using NLog.Targets;
+
 namespace Microsoft.Azure.Commands.DataLakeStore.Models
 {
     public class DataLakeStoreFileSystemClient
@@ -764,11 +765,79 @@ namespace Microsoft.Azure.Commands.DataLakeStore.Models
             {
                 WaitForTask(exportTask, cmdletCancellationToken);
             }
-            
-
         }
 
         #endregion
+
+        #region Deleted item operations
+        /// <summary>
+        /// Get items in trash matching query string
+        /// </summary>
+        /// <param name="accountName">Account name</param>
+        /// <param name="hint">Query to match items in trash</param>
+        /// <param name="listAfter">Continuation token returned by previous API call. Used to search next set of trash entries</param>
+        /// <param name="numResults">Minimum number of entries to search for</param>
+        /// <param name="cmdlet">GetAzureDataLakeStoreDeletedItem cmdlet</param>
+        /// <param name="cmdletCancellationToken">CancellationToken</param>
+        public IEnumerable<TrashEntry> EnumerateDeletedItems(string accountName, string hint, string listAfter, int numResults, Cmdlet cmdlet, CancellationToken cmdletCancellationToken = default(CancellationToken))
+        {
+            IEnumerable<TrashEntry> result = null;
+            Task enumerateTask = null;
+            try
+            {
+                var progressTracker = new Progress<EnumerateDeletedItemsProgress>();
+                progressTracker.ProgressChanged += (s, e) =>
+                {
+                    lock (ConsoleOutputLock)
+                    {
+                        Console.WriteLine("Searched = {0}, Found = {1}, NextListAfter = {2}\n", e.NumSearched, e.NumFound, e.NextListAfter);
+                    }
+                };
+
+
+                enumerateTask = Task.Run(() =>
+                {
+                    result = AdlsClientFactory.GetAdlsClient(accountName, _context).EnumerateDeletedItems(hint, listAfter, numResults, progressTracker, cmdletCancellationToken);
+                }, cmdletCancellationToken);
+
+
+                //cmdlet.WriteObject(result);
+            }
+            finally
+            {
+                WaitForTask(enumerateTask, cmdletCancellationToken);
+                if (result != null)
+                {
+                    var enumerator = result.GetEnumerator();
+                    while (enumerator.MoveNext())
+                    {
+                        var current = enumerator.Current;
+                        Console.WriteLine("TrashDirPath: {0}\nOriginalPath: {1}\nType: {2}\nCreationTime: {3}\n", current.TrashDirPath, current.OriginalPath, current.Type, current.CreationTime);
+                    }
+                }
+
+                cmdlet.WriteObject(result);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Restore a stream or directory from trash to user space. This is a synchronous operation.
+        /// Not threadsafe when Restore is called for same path from different threads. 
+        /// </summary>
+        /// <param name="restoreToken">The trash directory path in enumeratedeleteditems response</param>
+        /// <param name="restoreDestination">Path to where the entry should be restored</param>
+        /// <param name="type">Type of the entry which is being restored. "file" or "folder"</param>
+        /// <param name="restoreAction">Action to take during destination name conflicts - "overwrite" or "copy"</param>
+        /// <param name="cmdletCancellationToken">CancellationToken</param>
+        public void RestoreDeletedItem(string accountName, string pathOfFileToRestoreInTrash, string restoreDestination, string type, string restoreAction, CancellationToken cmdletCancellationToken = default(CancellationToken))
+        {
+            AdlsClientFactory.GetAdlsClient(accountName, _context).RestoreDeletedItems(pathOfFileToRestoreInTrash, restoreDestination, type, restoreAction, cmdletCancellationToken);
+        }
+
+        #endregion
+
 
         #region private helpers
         /// <summary>
